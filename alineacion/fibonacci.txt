@@ -1,0 +1,25 @@
+class Program {
+
+    int fibonacci(int n) {
+        int t1;
+        int t2;
+        if (n == 0){
+            return 0;
+        }
+        if (n == 1){
+            return 1;
+        }
+        if (n != 0 && n != 1){
+            t1 = fibonacci(n-1);
+            t2 = fibonacci(n-2);
+            return t1 + t2;
+        }
+    }
+
+    void main() {
+        int n;
+        int result;
+        n = 10;
+        result = fibonacci(n);
+    }
+}

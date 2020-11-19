@@ -1,0 +1,21 @@
+class Program {
+
+    void print(int v) {
+
+    }
+
+    void tobinary(int n) {
+        int temp;
+        int printer;
+        if (n/2 != 0){
+            temp = tobinary(n/2);
+        }
+        printer = print(n%2);
+    }
+
+    void main() {
+        int n;
+        int result;
+        result = tobinary(n);
+    }
+}

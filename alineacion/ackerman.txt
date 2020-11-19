@@ -1,0 +1,27 @@
+class Program {
+
+    int ackerman(int m int n) {
+        int akr;
+        int temp;
+		if (m == 0){
+            akr = n + 1;
+            return akr;
+        }
+        if (m > 0 && n == 0){
+            akr = ackerman(m-1 1);
+        }
+        if (m > 0 && n > 0){
+            temp = ackerman(m n-1);
+            akr = ackerman(m-1 temp);
+            return akr;
+        }
+
+    }
+
+    void main() {
+        int m;
+        int n;
+        int result;
+        result = ackerman(m n);
+    }
+}
