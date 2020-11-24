@@ -40,9 +40,9 @@ while_options = {
 }
 
 declaration_options = {
-    'char': '.balign 4\n$name: .asciz "$value"',
-    'int': '.balign 4\n$name: .word $value',
-    'boolean': '.balign 4\n$name: .word $value'
+    'char': '\n.balign 4\n$name: .asciz "$value"',
+    'int': '\n.balign 4\n$name: .word $value',
+    'boolean': '\n.balign 4\n$name: .word $value'
 }
 
 address_options = {

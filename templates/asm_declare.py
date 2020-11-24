@@ -10,7 +10,7 @@
 
 from string import Template
 # import the constants trings from the asm files
-from utils.asm_constants import declaration_options, address_options
+from templates.utils.asm_constants import declaration_options, address_options
 
 class ASM_DECLARE():
     # params for declaration
