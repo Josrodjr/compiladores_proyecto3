@@ -6,7 +6,8 @@ class Program {
 
     void tobinary(int n) {
         int temp;
-        char printer;
+        int printer;
+	n = n + 1;
         if (n/2 != 0){
             temp = tobinary(n/2);
         }
@@ -14,9 +15,11 @@ class Program {
     }
 
     void main() {
-        boolean n;
+        int n;
         int result;
         result = tobinary(n);
     }
 }
+
+
 
