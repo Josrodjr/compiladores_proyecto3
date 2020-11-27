@@ -1,6 +1,8 @@
 
 from templates import asm_declare
 
+avail_registers = ['r1','r2','r3','r4','r5','r6','r7','r8','r9']
+
 def delta_finder(input_file, start_search, end_search):
     start = input_file.find(start_search) + len(start_search)
     end = input_file.find(end_search)
@@ -8,10 +10,9 @@ def delta_finder(input_file, start_search, end_search):
 
 
 def fill_markers(input_file, markers):
-    pairs = [['DATA START', 'TEXT START'], ['TEXT START', '-1']]
+    pairs = [['DATA START', 'TEXT START'], ['TEXT START', '6af6c941-2b97-4163-9053-5b787a723261']]
     for pair in pairs:
         markers[pair[0]] = delta_finder(input_file, pair[0], pair[1])
-    
     return markers
 
 def main(inter_code):
@@ -44,11 +45,16 @@ def main(inter_code):
     main_list = find_main(markers)
     unmain_list = find_unmain(markers)
 
-    # print(main_list, unmain_list)
     # test the processing of functions
+    complete_assembly += '\n.global main\n'
     complete_assembly += process_main(main_list)
+
+    # do the standard exit
+    complete_assembly += do_exit()
+
     complete_assembly += process_unmain(unmain_list)
 
+    complete_assembly += '\n'
 
     extlibs_assembly = external_libs(markers)
     complete_assembly += extlibs_assembly
@@ -56,6 +62,14 @@ def main(inter_code):
     find_main(markers)
 
     return complete_assembly
+
+def do_exit():
+    generated_exit_asm = '\n\t/* Exit procedures after main */'
+    generated_exit_asm += '\n\tmov r0, #0'
+    generated_exit_asm += '\n\tmov r7, #1'
+    generated_exit_asm += '\n\tswi 0'
+
+    return generated_exit_asm
 
 def declarations(markers):
     # iterate over the declarations
@@ -187,7 +201,7 @@ def process_main(main_list):
 
                     # temp1 has the register and =, temp2 has the function
                     formed_function += '\n' + tab_status*tab_character + 'b ' + temp[1]
-                    formed_function += '\n' + tab_status*tab_character + 'ldr ' + temp[0][:-1] + ', #r0'
+                    formed_function += '\n' + tab_status*tab_character + 'ldr ' + temp[0][:-1] + ', [r0]'
                     continue
 
                 # division
@@ -195,28 +209,32 @@ def process_main(main_list):
                     # split by the equal
                     temp = main_list[i].split('=')
                     without_div = temp[1].split('/')
-                    formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + without_div[0] + ', lsr 1'
+                    # temporal load for the division
+                    formed_function += '\n' + tab_status*tab_character + 'ldr r10, ' + without_div[0]
+                    formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + 'r10' + ', lsr #1'
                     continue
 
                 if '%' in main_list[i]:
-                    # split by the equal
-                    temp = main_list[i].split('=')
-                    without_div = temp[1].split('%')
-                    formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + without_div[0] + ' mod '+ without_div[1]
+                #     # split by the equal
+                #     temp = main_list[i].split('=')
+                #     without_div = temp[1].split('%')
+                #     # temporal load for the module
+                #     formed_function += '\n' + tab_status*tab_character + 'ldr r10, ' + without_div[0]
+                #     formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', r10,' + ' mod #'+ without_div[1]
                     continue
 
                 if '+' in main_list[i]:
                     # split by the equal
                     temp = main_list[i].split('=')
                     without_div = temp[1].split('+')
-                    formed_function += '\n' + tab_status*tab_character + 'add ' + temp[0] + ', ' + without_div[0] + ', '+ without_div[1]
+                    formed_function += '\n' + tab_status*tab_character + 'add ' + temp[0] + ', ' + without_div[0] + ', #'+ without_div[1]
                     continue
 
                 if '-' in main_list[i]:
                     # split by the equal
                     temp = main_list[i].split('=')
                     without_div = temp[1].split('-')
-                    formed_function += '\n' + tab_status*tab_character + 'sub ' + temp[0] + ', ' + without_div[0] + ', '+ without_div[1]
+                    formed_function += '\n' + tab_status*tab_character + 'sub ' + temp[0] + ', ' + without_div[0] + ', #'+ without_div[1]
                     continue
 
                 if '!=' in main_list[i]:
@@ -275,15 +293,30 @@ def process_main(main_list):
 
                 # ASIGNACION si completo todo lo demas
                 temp = main_list[i].split('=')
-                right = temp[1]
-                # fix bug of assignment of function
-                if temp[1] == '0':
-                    # go back one iteration and retrieve the left side of the equation
-                    prev_func = main_list[i-1].split('=')
-                    right = prev_func[0]
+                op_type = ''
+                if temp[0] in avail_registers:
+                    op_type = 'ldr '
+                    right = temp[1]
+                    # fix bug of assignment of function
+                    if temp[1] == '0':
+                        # go back one iteration and retrieve the left side of the equation
+                        prev_func = main_list[i-1].split('=')
+                        right = prev_func[0]
+                    formed_function += '\n' + tab_status*tab_character + op_type + temp[0] + ', ' + right
 
-                formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + right
-
+                else:
+                    op_type = 'str '
+                    right = temp[1]
+                    # fix bug of assignment of function
+                    if temp[1] == '0':
+                        # go back one iteration and retrieve the left side of the equation
+                        prev_func = main_list[i-1].split('=')
+                        right = prev_func[0]
+                    
+                    if right in avail_registers:
+                        formed_function += '\n' + tab_status*tab_character + op_type + right + ', ' + temp[0]
+                    else:
+                        formed_function += '\n' + tab_status*tab_character + op_type + '#' + right + ', ' + temp[0]
 
     return formed_function
 
@@ -331,7 +364,7 @@ def process_unmain(main_list):
 
                     # temp1 has the register and =, temp2 has the function
                     formed_function += '\n' + tab_status*tab_character + 'b ' + temp[1]
-                    formed_function += '\n' + tab_status*tab_character + 'ldr ' + temp[0][:-1] + ', #r0'
+                    formed_function += '\n' + tab_status*tab_character + 'ldr ' + temp[0][:-1] + ', [r0]'
                     continue
 
                 # division
@@ -339,28 +372,32 @@ def process_unmain(main_list):
                     # split by the equal
                     temp = main_list[i].split('=')
                     without_div = temp[1].split('/')
-                    formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + without_div[0] + ', lsr 1'
+                    # temporal load for the division
+                    formed_function += '\n' + tab_status*tab_character + 'ldr r10, ' + without_div[0]
+                    formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + 'r10' + ', lsr #1'
                     continue
 
                 if '%' in main_list[i]:
-                    # split by the equal
-                    temp = main_list[i].split('=')
-                    without_div = temp[1].split('%')
-                    formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + without_div[0] + ' mod '+ without_div[1]
+                #     # split by the equal
+                #     temp = main_list[i].split('=')
+                #     without_div = temp[1].split('%')
+                #     # temporal load for the module
+                #     formed_function += '\n' + tab_status*tab_character + 'ldr r10, ' + without_div[0]
+                #     formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', r10,' + ' mod #'+ without_div[1]
                     continue
 
                 if '+' in main_list[i]:
                     # split by the equal
                     temp = main_list[i].split('=')
                     without_div = temp[1].split('+')
-                    formed_function += '\n' + tab_status*tab_character + 'add ' + temp[0] + ', ' + without_div[0] + ', '+ without_div[1]
+                    formed_function += '\n' + tab_status*tab_character + 'add ' + temp[0] + ', ' + without_div[0] + ', #'+ without_div[1]
                     continue
 
                 if '-' in main_list[i]:
                     # split by the equal
                     temp = main_list[i].split('=')
                     without_div = temp[1].split('-')
-                    formed_function += '\n' + tab_status*tab_character + 'sub ' + temp[0] + ', ' + without_div[0] + ', '+ without_div[1]
+                    formed_function += '\n' + tab_status*tab_character + 'sub ' + temp[0] + ', ' + without_div[0] + ', #'+ without_div[1]
                     continue
 
                 if '!=' in main_list[i]:
@@ -419,13 +456,32 @@ def process_unmain(main_list):
 
                 # ASIGNACION si completo todo lo demas
                 temp = main_list[i].split('=')
-                right = temp[1]
-                # fix bug of assignment of function
-                if temp[1] == '0':
-                    # go back one iteration and retrieve the left side of the equation
-                    prev_func = main_list[i-1].split('=')
-                    right = prev_func[0]
-                formed_function += '\n' + tab_status*tab_character + 'mov ' + temp[0] + ', ' + right
+                op_type = ''
+
+                if temp[0] in avail_registers:
+                    op_type = 'ldr '
+                    right = temp[1]
+                    # fix bug of assignment of function
+                    if temp[1] == '0':
+                        # go back one iteration and retrieve the left side of the equation
+                        prev_func = main_list[i-1].split('=')
+                        right = prev_func[0]
+                    formed_function += '\n' + tab_status*tab_character + op_type + temp[0] + ', ' + right
+
+                else:
+                    op_type = 'str '
+                    right = temp[1]
+                    # fix bug of assignment of function
+                    if temp[1] == '0':
+                        # go back one iteration and retrieve the left side of the equation
+                        prev_func = main_list[i-1].split('=')
+                        right = prev_func[0]
+
+                    if right in avail_registers:
+                        formed_function += '\n' + tab_status*tab_character + op_type + right + ', ' + temp[0]
+                    else:
+                        formed_function += '\n' + tab_status*tab_character + op_type + '#' + right + ', ' + temp[0]
 
 
+                
     return formed_function

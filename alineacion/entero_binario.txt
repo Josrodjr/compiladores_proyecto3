@@ -1,9 +1,5 @@
 class Program {
 
-    void print(int v) {
-
-    }
-
     void tobinary(int n) {
         int temp;
         int printer;
